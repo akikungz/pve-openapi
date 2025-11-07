@@ -1,12 +1,28 @@
 {
   "name": "pve-openapi",
-  "version": "1.0.50",
+  "version": "1.0.0",
+  "description": "Auto-generated OpenAPI documentation server for Proxmox Virtual Environment API",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "fetch-schema": "bash scripts/fetch-schema.sh",
+    "convert-schema": "bun run scripts/convert-schema.ts",
+    "update-schema": "bun run fetch-schema && bun run convert-schema"
   },
+  "keywords": [
+    "proxmox",
+    "pve",
+    "openapi",
+    "swagger",
+    "api",
+    "documentation"
+  ],
   "dependencies": {
-    "elysia": "latest"
+    "@elysiajs/openapi": "^1.4.11",
+    "axios": "^1.13.2",
+    "elysia": "latest",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "bun-types": "latest"

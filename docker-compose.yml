@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  pve-openapi:
+    build: .
+    ports:
+      - "${PORT:-3006}:3006"
+    environment:
+      - PORT=${PORT:-3006}
+      - PVE_API_URL=${PVE_API_URL}
+      - PVE_API_TOKEN=${PVE_API_TOKEN}
+      - PVE_API_TOKEN_NAME=${PVE_API_TOKEN_NAME}
+      - PVE_API_TOKEN_USER=${PVE_API_TOKEN_USER}
+    restart: unless-stopped
+    networks:
+      - pve-network
+
+networks:
+  pve-network:
+    driver: bridge
