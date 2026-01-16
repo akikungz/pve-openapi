@@ -6,6 +6,7 @@ import {
   getAllTags,
   getAllTagGroups,
 } from "./generate-routes";
+import { http_instance } from "./libs/http";
 
 // Generate all routes from PVE schema
 const pveRoutes = generateAllRoutes();
@@ -40,7 +41,24 @@ const app = new Elysia()
     },
   })
   // Use PVE routes
-  .use(pveRoutes);
+  .use(pveRoutes)
+  .all("/proxy/*", async (ctx) => {
+    const proxiedPath = ctx.path.replace("/proxy", "");
+
+    const res = await http_instance.request({
+      method: ctx.request.method,
+      url: proxiedPath,
+      data: ctx.body,
+    });
+
+    return ctx.status(res.status, res.data);
+  }, {
+    detail: {
+      description: "Proxy endpoint to forward requests to Proxmox VE API with path after /proxy and target path after /api2/json",
+      tags: ["Proxy"],
+      hide: true,
+    },
+  });
 
 app.listen(env.PORT, (ctx) =>
   console.log(

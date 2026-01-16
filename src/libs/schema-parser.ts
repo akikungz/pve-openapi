@@ -18,6 +18,9 @@ export interface PVEParameter {
   items?: PVEParameter;
   properties?: Record<string, PVEParameter>;
   additionalProperties?: number;
+  anyOf?: PVEParameter[];
+  oneOf?: PVEParameter[];
+  allOf?: PVEParameter[];
 }
 
 export interface PVEMethodInfo {
@@ -61,6 +64,26 @@ export interface PVEEndpoint {
 // Convert PVE parameter type to Elysia/Zod type
 export const convertPVETypeToElysiaType = (param: PVEParameter): any => {
   const isOptional = param.optional === 1 || param.optional === true;
+
+  // Handle anyOf/oneOf types (union types)
+  if (param.anyOf && param.anyOf.length > 0) {
+    const types = param.anyOf.map((p) => convertPVETypeToElysiaType(p));
+    let unionType = t.Union(types, {
+      description: param.description,
+      ...(param.default !== undefined && { default: param.default }),
+    });
+    return isOptional ? t.Optional(unionType) : unionType;
+  }
+
+  // Handle oneOf types (similar to anyOf)
+  if (param.oneOf && param.oneOf.length > 0) {
+    const types = param.oneOf.map((p) => convertPVETypeToElysiaType(p));
+    let unionType = t.Union(types, {
+      description: param.description,
+      ...(param.default !== undefined && { default: param.default }),
+    });
+    return isOptional ? t.Optional(unionType) : unionType;
+  }
 
   // Handle enum types
   if (param.enum && param.enum.length > 0) {
@@ -182,6 +205,19 @@ export const convertPVEPath = (pvePath: string): string => {
   return pvePath.replace(/\{(\w+)\}/g, ":$1");
 };
 
+// Extract path parameter names from a path string
+export const extractPathParams = (path: string): Set<string> => {
+  const params = new Set<string>();
+  const matches = path.match(/\{(\w+)\}/g);
+  if (matches) {
+    matches.forEach((match) => {
+      const paramName = match.replace(/\{|\}/g, "");
+      params.add(paramName);
+    });
+  }
+  return params;
+};
+
 // Generate tag name from path
 export const generateTagName = (path: string): string => {
   const parts = path.split("/").filter(Boolean);
@@ -235,6 +271,7 @@ export const createRouteHandler = (app: any, endpoint: PVEEndpoint): any => {
   if (endpoint.info.POST) {
     const method = endpoint.info.POST;
     const hasBody = method.parameters?.properties;
+    const pathParams = extractPathParams(endpoint.path);
 
     app = app.post(
       elysiaPath,
@@ -251,7 +288,10 @@ export const createRouteHandler = (app: any, endpoint: PVEEndpoint): any => {
           body: t.Object(
             Object.entries(method.parameters!.properties!).reduce(
               (acc, [key, param]) => {
-                acc[key] = convertPVETypeToElysiaType(param);
+                // Skip path parameters - they should not be in body
+                if (!pathParams.has(key)) {
+                  acc[key] = convertPVETypeToElysiaType(param);
+                }
                 return acc;
               },
               {} as Record<string, any>,
@@ -272,6 +312,7 @@ export const createRouteHandler = (app: any, endpoint: PVEEndpoint): any => {
   if (endpoint.info.PUT) {
     const method = endpoint.info.PUT;
     const hasBody = method.parameters?.properties;
+    const pathParams = extractPathParams(endpoint.path);
 
     app = app.put(
       elysiaPath,
@@ -288,7 +329,10 @@ export const createRouteHandler = (app: any, endpoint: PVEEndpoint): any => {
           body: t.Object(
             Object.entries(method.parameters!.properties!).reduce(
               (acc, [key, param]) => {
-                acc[key] = convertPVETypeToElysiaType(param);
+                // Skip path parameters - they should not be in body
+                if (!pathParams.has(key)) {
+                  acc[key] = convertPVETypeToElysiaType(param);
+                }
                 return acc;
               },
               {} as Record<string, any>,
@@ -309,6 +353,7 @@ export const createRouteHandler = (app: any, endpoint: PVEEndpoint): any => {
   if (endpoint.info.DELETE) {
     const method = endpoint.info.DELETE;
     const hasParams = method.parameters?.properties;
+    const pathParams = extractPathParams(endpoint.path);
 
     app = app.delete(
       elysiaPath,
@@ -331,7 +376,10 @@ export const createRouteHandler = (app: any, endpoint: PVEEndpoint): any => {
           query: t.Object(
             Object.entries(method.parameters!.properties!).reduce(
               (acc, [key, param]) => {
-                acc[key] = convertPVETypeToElysiaType(param);
+                // Skip path parameters - they should not be in query
+                if (!pathParams.has(key)) {
+                  acc[key] = convertPVETypeToElysiaType(param);
+                }
                 return acc;
               },
               {} as Record<string, any>,

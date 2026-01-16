@@ -131,6 +131,46 @@ export const convertProxmoxBooleans = (data: any): any => {
   return data;
 };
 
+// Convert pressure fields from boolean false to null per API schema
+// These fields should be number | null, but Proxmox returns false when unavailable
+export const normalizePressureFields = (data: any): any => {
+  if (data === null || data === undefined) {
+    return data;
+  }
+
+  // If it's an array, recursively convert each element
+  if (Array.isArray(data)) {
+    return data.map((item) => normalizePressureFields(item));
+  }
+
+  // If it's an object, recursively convert pressure fields
+  if (typeof data === "object") {
+    const converted: any = {};
+    const pressureFields = [
+      "pressurecpufull",
+      "pressurecpusome",
+      "pressureiofull",
+      "pressureiosome",
+      "pressurememoryfull",
+      "pressurememorysome",
+    ];
+
+    for (const [key, value] of Object.entries(data)) {
+      // Convert false to null for pressure fields
+      if (pressureFields.includes(key) && value === false) {
+        converted[key] = null;
+      } else {
+        // Recursively process nested objects/arrays
+        converted[key] = normalizePressureFields(value);
+      }
+    }
+    return converted;
+  }
+
+  // Return primitive values as-is
+  return data;
+};
+
 export const replace_params = <
   Path extends string,
   Params extends ExtractParams<Path>,
@@ -160,7 +200,9 @@ export const get_pve = async (
     const response = await http_instance.get(finalUrl);
 
     // Convert Proxmox 0/1 booleans to proper JSON booleans
-    const convertedData = convertProxmoxBooleans(response.data);
+    let convertedData = convertProxmoxBooleans(response.data);
+    // Normalize pressure fields from false to null per schema
+    convertedData = normalizePressureFields(convertedData);
 
     return status(response.status as any, convertedData as any);
   } catch (error) {
@@ -208,7 +250,9 @@ export const other_http_methods = async <
     });
 
     // Convert Proxmox 0/1 booleans to proper JSON booleans
-    const convertedData = convertProxmoxBooleans(response.data);
+    let convertedData = convertProxmoxBooleans(response.data);
+    // Normalize pressure fields from false to null per schema
+    convertedData = normalizePressureFields(convertedData);
 
     return status(response.status as any, convertedData as any);
   } catch (error) {
